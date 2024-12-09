@@ -12,7 +12,7 @@ edition = "2021"
 publish = false
 
 [package.metadata.docs.rs]
-targets = ["x86_64-pc-windows-gnu", "x86_64-pc-windows-msvc"]
+default-target = "x86_64-pc-windows-msvc"
 no-default-features = true
 features = ["ring"]
 
