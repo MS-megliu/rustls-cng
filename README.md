@@ -15,9 +15,7 @@ Rationale: In many situations, it is required to use non-exportable private cert
 
 Supported key/certificate types: **RSA**, **ECDSA/ECDH**. Supported elliptic curves: secp256r1 (prime256v1), secp384r1.
 
-## Documentation
-
-Documentation is available [here](https://rustls.github.io/rustls-cng/doc/rustls_cng).
+[Documentation](https://docs.rs/rustls-cng).
 
 ## Usage
 
