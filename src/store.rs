@@ -136,14 +136,13 @@ impl CertStore {
         unsafe { self.do_find(CERT_FIND_HASH, &hash_blob as *const _ as _) }
     }
 
-
-    /// On later OS releases, we added CERT_FIND_SHA256_HASH. 
+    /// On later OS releases, we added CERT_FIND_SHA256_HASH.
     /// However, rustls-cng could be installed on earlier OS release where this FIND_SHA256 isn't present.
-    /// But the CERT_SHA256_HASH_PROP_ID is present. 
+    /// But the CERT_SHA256_HASH_PROP_ID is present.
     /// So will need to add a new internal find function that gets and compares the SHA256 property.
-    /// Also, since SHA1 is being deprecated, Windows components should not use. 
+    /// Also, since SHA1 is being deprecated, Windows components should not use.
     /// Therefore, the need to find via SHA256 instead of SHA1.
-    
+
     /// Find list of certificates matching the SHA256 hash
     pub fn find_by_sha256<D>(&self, hash: D) -> Result<Vec<CertContext>>
     where
@@ -209,7 +208,14 @@ impl CertStore {
         let hash_blob = &*(find_param as *const CRYPT_INTEGER_BLOB);
         let sha256_hash = std::slice::from_raw_parts(hash_blob.pbData, hash_blob.cbData as usize);
         loop {
-            cert = CertFindCertificateInStore(self.0, MY_ENCODING_TYPE, 0, CERT_FIND_ANY, find_param, cert);
+            cert = CertFindCertificateInStore(
+                self.0,
+                MY_ENCODING_TYPE,
+                0,
+                CERT_FIND_ANY,
+                find_param,
+                cert,
+            );
             if cert.is_null() {
                 break;
             } else {
@@ -229,8 +235,8 @@ impl CertStore {
                     }
                 }
             }
-         }
-         Ok(certs)
+        }
+        Ok(certs)
     }
 
     fn find_by_str(&self, pattern: &str, flags: CERT_FIND_FLAGS) -> Result<Vec<CertContext>> {
