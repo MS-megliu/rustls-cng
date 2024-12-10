@@ -1,6 +1,6 @@
 [package]
 name = "rustls-cng"
-version = "0.6.0"
+version = "0.5.2"
 authors = ["Dmitry Pankratov <dmitry@pankratov.net>"]
 description = "Windows CNG API bridge for rustls"
 license = "MIT/Apache-2.0"
@@ -13,18 +13,11 @@ publish = false
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
-no-default-features = true
-features = ["ring"]
 
 [dependencies]
-rustls = { git = "https://github.com/rustls/rustls.git", default-features = false, features = [
-    "std",
-] }
+rustls = { version = "0.23", default-features = false, features = ["std"] }
 sha2 = "0.10"
-windows-sys = { version = "0.59", features = [
-    "Win32_Foundation",
-    "Win32_Security_Cryptography",
-] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 aws-lc-rs = { version = "1", optional = true }
 
 [dev-dependencies]
