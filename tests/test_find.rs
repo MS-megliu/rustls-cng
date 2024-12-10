@@ -64,6 +64,21 @@ fn test_find_by_hash() {
 }
 
 #[test]
+fn test_find_by_hash256() {
+    let store = CertStore::from_pkcs12(PFX, PASSWORD).expect("Cannot open cert store");
+     
+    let sha256 = [
+        0xC9, 0x7C, 0xD6, 0xA1, 0x3F, 0xF6, 0xBD, 0xF6,
+        0xD4, 0xE2, 0xFB, 0x0E, 0xCD, 0x74, 0x2F, 0x14,
+        0x30, 0x53, 0xB0, 0x89, 0xFA, 0x4D, 0xA5, 0xE5,
+        0x8B, 0xA3, 0x9F, 0x72, 0xED, 0x2F, 0x9F, 0xB6
+    ];
+    
+    let context = store.find_by_sha256(sha256).unwrap().into_iter().next();
+    assert!(context.is_some());
+}
+
+#[test]
 fn test_find_all() {
     let store = CertStore::from_pkcs12(PFX, PASSWORD).expect("Cannot open cert store");
 

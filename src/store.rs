@@ -136,6 +136,26 @@ impl CertStore {
         unsafe { self.do_find(CERT_FIND_HASH, &hash_blob as *const _ as _) }
     }
 
+
+    /// On later OS releases, we added CERT_FIND_SHA256_HASH. 
+    /// However, rustls-cng could be installed on earlier OS release where this FIND_SHA256 isn't present.
+    /// But the CERT_SHA256_HASH_PROP_ID is present. 
+    /// So will need to add a new internal find function that gets and compares the SHA256 property.
+    /// Also, since SHA1 is being deprecated, Windows components should not use. 
+    /// Therefore, the need to find via SHA256 instead of SHA1.
+    
+    /// Find list of certificates matching the SHA256 hash
+    pub fn find_by_sha256<D>(&self, hash: D) -> Result<Vec<CertContext>>
+    where
+        D: AsRef<[u8]>,
+    {
+        let hash_blob = CRYPT_INTEGER_BLOB {
+            cbData: hash.as_ref().len() as u32,
+            pbData: hash.as_ref().as_ptr() as _,
+        };
+        unsafe { self.do_find_by_sha256_property(&hash_blob as *const _ as _) }
+    }
+
     /// Find list of certificates matching the key identifier
     pub fn find_by_key_id<D>(&self, key_id: D) -> Result<Vec<CertContext>>
     where
@@ -178,6 +198,39 @@ impl CertStore {
             }
         }
         Ok(certs)
+    }
+
+    unsafe fn do_find_by_sha256_property(
+        &self,
+        find_param: *const c_void,
+    ) -> Result<Vec<CertContext>> {
+        let mut certs = Vec::new();
+        let mut cert: *mut CERT_CONTEXT = ptr::null_mut();
+        let hash_blob = &*(find_param as *const CRYPT_INTEGER_BLOB);
+        let sha256_hash = std::slice::from_raw_parts(hash_blob.pbData, hash_blob.cbData as usize);
+        loop {
+            cert = CertFindCertificateInStore(self.0, MY_ENCODING_TYPE, 0, CERT_FIND_ANY, find_param, cert);
+            if cert.is_null() {
+                break;
+            } else {
+                let mut prop_data = [0u8; 32];
+                let mut prop_data_len = prop_data.len() as u32;
+
+                if CertGetCertificateContextProperty(
+                    cert,
+                    CERT_SHA256_HASH_PROP_ID,
+                    prop_data.as_mut_ptr() as *mut c_void,
+                    &mut prop_data_len,
+                ) != 0
+                {
+                    if prop_data[..prop_data_len as usize] == sha256_hash[..] {
+                        let cert = CertDuplicateCertificateContext(cert);
+                        certs.push(CertContext::new_owned(cert))
+                    }
+                }
+            }
+         }
+         Ok(certs)
     }
 
     fn find_by_str(&self, pattern: &str, flags: CERT_FIND_FLAGS) -> Result<Vec<CertContext>> {
