@@ -9,7 +9,6 @@ documentation = "https://rustls.github.io/rustls-cng/doc/rustls_cng"
 readme = "README.md"
 keywords = ["cng", "tls", "rustls", "windows"]
 edition = "2021"
-publish = false
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
