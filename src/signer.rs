@@ -6,9 +6,15 @@ use rustls::{
     sign::{Signer, SigningKey},
     Error, OtherError, SignatureAlgorithm, SignatureScheme,
 };
-use sha2::digest::Digest;
 
 use crate::key::{AlgorithmGroup, NCryptKey, SignaturePadding};
+
+use windows_sys::Win32::Security::Cryptography::BCryptHash;
+use windows_sys::Win32::Security::Cryptography::{
+    BCRYPT_SHA256_ALG_HANDLE,
+    BCRYPT_SHA384_ALG_HANDLE,
+    BCRYPT_SHA512_ALG_HANDLE,
+};
 
 // Convert IEEE-P1363 signature format to DER encoding.
 // We assume the length of the r and s parts is less than 256 bytes.
@@ -100,44 +106,72 @@ struct CngSigner {
 }
 
 impl CngSigner {
+
+    // new hash function using BCryptHash function which uses FIPS certified SymCrypt
     fn hash(&self, message: &[u8]) -> Result<(Vec<u8>, SignaturePadding), Error> {
-        let (hash, padding) = match self.scheme {
+        let (alg, padding) = match self.scheme {
             SignatureScheme::RSA_PKCS1_SHA256 => (
-                sha2::Sha256::digest(message).to_vec(),
+                BCRYPT_SHA256_ALG_HANDLE,
                 SignaturePadding::Pkcs1,
             ),
             SignatureScheme::RSA_PKCS1_SHA384 => (
-                sha2::Sha384::digest(message).to_vec(),
+                BCRYPT_SHA384_ALG_HANDLE,
                 SignaturePadding::Pkcs1,
             ),
             SignatureScheme::RSA_PKCS1_SHA512 => (
-                sha2::Sha512::digest(message).to_vec(),
+                BCRYPT_SHA512_ALG_HANDLE,
                 SignaturePadding::Pkcs1,
             ),
             SignatureScheme::RSA_PSS_SHA256 => (
-                sha2::Sha256::digest(message).to_vec(),
+                BCRYPT_SHA256_ALG_HANDLE,
                 SignaturePadding::Pss,
             ),
             SignatureScheme::RSA_PSS_SHA384 => (
-                sha2::Sha384::digest(message).to_vec(),
+                BCRYPT_SHA384_ALG_HANDLE,
                 SignaturePadding::Pss,
             ),
             SignatureScheme::RSA_PSS_SHA512 => (
-                sha2::Sha512::digest(message).to_vec(),
+                BCRYPT_SHA512_ALG_HANDLE,
                 SignaturePadding::Pss,
             ),
             SignatureScheme::ECDSA_NISTP256_SHA256 => (
-                sha2::Sha256::digest(message).to_vec(),
+                BCRYPT_SHA256_ALG_HANDLE,
                 SignaturePadding::None,
             ),
             SignatureScheme::ECDSA_NISTP384_SHA384 => (
-                sha2::Sha384::digest(message).to_vec(),
+                BCRYPT_SHA384_ALG_HANDLE,
                 SignaturePadding::None,
             ),
             _ => return Err(Error::General("Unsupported signature scheme".to_owned())),
         };
+
+               
+        let hash_len = match alg { 
+            BCRYPT_SHA256_ALG_HANDLE => 32, 
+            BCRYPT_SHA384_ALG_HANDLE => 48, 
+            BCRYPT_SHA512_ALG_HANDLE => 64, 
+            _ => return Err(Error::General("Unsupported hash algorithm!".to_owned())), 
+        }; 
+
+        let mut hash = vec![0u8; hash_len]; 
+
+        unsafe {
+            let status = BCryptHash(
+                alg as *mut core::ffi::c_void,
+                std::ptr::null_mut(), // pbSecret
+                0, // cbSecret
+                message.as_ptr() as *mut u8,
+                message.len() as u32,
+                hash.as_mut_ptr(),
+                hash_len as u32,
+            );
+
+            if status != 0 {
+                return Err(Error::General(format!("BCryptHash failed with status: 0x{:X}", status)));
+            }      
+        }
         Ok((hash, padding))
-    }
+    } 
 }
 
 impl Signer for CngSigner {
