@@ -13,6 +13,7 @@ use rustls::{
 };
 
 use rustls_cng::{
+    cert::ChainEngineType,
     signer::CngSigningKey,
     store::{CertStore, CertStoreType},
 };
@@ -74,7 +75,9 @@ impl ResolvesServerCert for ServerCertResolver {
         println!("Key alg: {:?}", key.key().algorithm());
 
         // attempt to acquire a full certificate chain
-        let chain = context.as_chain_der().ok()?;
+        let chain = context
+            .as_chain_der(true, ChainEngineType::HkeyLocalMachine)
+            .ok()?;
         let certs = chain.into_iter().map(Into::into).collect();
 
         // return CertifiedKey instance
