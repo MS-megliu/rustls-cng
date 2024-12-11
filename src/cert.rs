@@ -6,10 +6,17 @@ use windows_sys::Win32::Security::Cryptography::*;
 
 use crate::{error::CngError, key::NCryptKey, Result};
 
+const HCCE_LOCAL_MACHINE: HCERTCHAINENGINE = 0x1 as HCERTCHAINENGINE;
+
 #[derive(Debug)]
 enum InnerContext {
     Owned(*const CERT_CONTEXT),
     Borrowed(*const CERT_CONTEXT),
+}
+
+pub enum ChainEngineType {
+    HkeyCurrentUser,
+    HkeyLocalMachine,
 }
 
 unsafe impl Send for InnerContext {}
@@ -86,9 +93,59 @@ impl CertContext {
             )
         }
     }
+    /*
+        /// Return DER-encoded X.509 certificate chain
+        pub fn as_chain_der(&self) -> Result<Vec<Vec<u8>>> {
+            unsafe {
+                let param = CERT_CHAIN_PARA {
+                    cbSize: mem::size_of::<CERT_CHAIN_PARA>() as u32,
+                    RequestedUsage: std::mem::zeroed(),
+                };
 
-    /// Return DER-encoded X.509 certificate chain
-    pub fn as_chain_der(&self) -> Result<Vec<Vec<u8>>> {
+                let mut context: *mut CERT_CHAIN_CONTEXT = ptr::null_mut();
+
+                let result = CertGetCertificateChain(
+                    HCERTCHAINENGINE::default(),
+                    self.inner(),
+                    ptr::null(),
+                    ptr::null_mut(),
+                    &param,
+                    0,
+                    ptr::null(),
+                    &mut context,
+                ) != 0;
+
+                if result {
+                    let mut chain = vec![];
+
+                    if (*context).cChain > 0 {
+                        let chain_ptr = *(*context).rgpChain;
+                        let elements = slice::from_raw_parts(
+                            (*chain_ptr).rgpElement,
+                            (*chain_ptr).cElement as usize,
+                        );
+                        for element in elements {
+                            let context = (**element).pCertContext;
+                            chain.push(Self::new_borrowed(context).as_der().to_vec());
+                        }
+                    }
+
+                    CertFreeCertificateChain(&*context);
+
+                    Ok(chain)
+                } else {
+                    Err(CngError::from_win32_error())
+                }
+            }
+        }
+    */
+    /// Return DER-encoded X.509 certificate chain.
+    /// Giving user options to (1) not to include the root. (2) to use the HKLM engine instead of default HKCU engine
+    pub fn as_chain_der(
+        &self,
+        include_root: bool,
+        chain_engine: ChainEngineType,
+    ) -> Result<Vec<Vec<u8>>> {
         unsafe {
             let param = CERT_CHAIN_PARA {
                 cbSize: mem::size_of::<CERT_CHAIN_PARA>() as u32,
@@ -97,8 +154,13 @@ impl CertContext {
 
             let mut context: *mut CERT_CHAIN_CONTEXT = ptr::null_mut();
 
+            let chain_engine = match chain_engine {
+                ChainEngineType::HkeyLocalMachine => HCCE_LOCAL_MACHINE as isize,
+                ChainEngineType::HkeyCurrentUser => HCERTCHAINENGINE::default() as isize,
+            };
+
             let result = CertGetCertificateChain(
-                HCERTCHAINENGINE::default(),
+                chain_engine,
                 self.inner(),
                 ptr::null(),
                 ptr::null_mut(),
@@ -117,7 +179,19 @@ impl CertContext {
                         (*chain_ptr).rgpElement,
                         (*chain_ptr).cElement as usize,
                     );
+
+                    let mut first = true;
                     for element in elements {
+                        if first {
+                            first = false;
+                        } else if !include_root {
+                            if 0 != ((**element).TrustStatus.dwInfoStatus
+                                & CERT_TRUST_IS_SELF_SIGNED)
+                            {
+                                break;
+                            }
+                        }
+
                         let context = (**element).pCertContext;
                         chain.push(Self::new_borrowed(context).as_der().to_vec());
                     }
