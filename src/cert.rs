@@ -14,11 +14,6 @@ enum InnerContext {
     Borrowed(*const CERT_CONTEXT),
 }
 
-pub enum ChainEngineType {
-    HkeyCurrentUser,
-    HkeyLocalMachine,
-}
-
 unsafe impl Send for InnerContext {}
 unsafe impl Sync for InnerContext {}
 
@@ -93,70 +88,30 @@ impl CertContext {
             )
         }
     }
-    /*
-        /// Return DER-encoded X.509 certificate chain
-        pub fn as_chain_der(&self) -> Result<Vec<Vec<u8>>> {
-            unsafe {
-                let param = CERT_CHAIN_PARA {
-                    cbSize: mem::size_of::<CERT_CHAIN_PARA>() as u32,
-                    RequestedUsage: std::mem::zeroed(),
-                };
-
-                let mut context: *mut CERT_CHAIN_CONTEXT = ptr::null_mut();
-
-                let result = CertGetCertificateChain(
-                    HCERTCHAINENGINE::default(),
-                    self.inner(),
-                    ptr::null(),
-                    ptr::null_mut(),
-                    &param,
-                    0,
-                    ptr::null(),
-                    &mut context,
-                ) != 0;
-
-                if result {
-                    let mut chain = vec![];
-
-                    if (*context).cChain > 0 {
-                        let chain_ptr = *(*context).rgpChain;
-                        let elements = slice::from_raw_parts(
-                            (*chain_ptr).rgpElement,
-                            (*chain_ptr).cElement as usize,
-                        );
-                        for element in elements {
-                            let context = (**element).pCertContext;
-                            chain.push(Self::new_borrowed(context).as_der().to_vec());
-                        }
-                    }
-
-                    CertFreeCertificateChain(&*context);
-
-                    Ok(chain)
-                } else {
-                    Err(CngError::from_win32_error())
-                }
-            }
-        }
-    */
+    
     /// Return DER-encoded X.509 certificate chain.
-    /// Giving user options to (1) not to include the root. (2) to use the HKLM engine instead of default HKCU engine
+    /// (1) exclude the root. (2) check leaf cert to determin to use HKLM engine or HKCU engine
     pub fn as_chain_der(
         &self,
-        include_root: bool,
-        chain_engine: ChainEngineType,
     ) -> Result<Vec<Vec<u8>>> {
         unsafe {
             let param = CERT_CHAIN_PARA {
                 cbSize: mem::size_of::<CERT_CHAIN_PARA>() as u32,
                 RequestedUsage: std::mem::zeroed(),
             };
-
             let mut context: *mut CERT_CHAIN_CONTEXT = ptr::null_mut();
+            let mut dw_access_state_flags: u32 = 0;
+            let mut cb_data = mem::size_of::<u32>() as u32;
 
-            let chain_engine = match chain_engine {
-                ChainEngineType::HkeyLocalMachine => HCCE_LOCAL_MACHINE as isize,
-                ChainEngineType::HkeyCurrentUser => HCERTCHAINENGINE::default() as isize,
+            let chain_engine = if CertGetCertificateContextProperty(
+                self.inner(),
+                CERT_ACCESS_STATE_PROP_ID,
+                &mut dw_access_state_flags as *mut _ as *mut _,
+                &mut cb_data as *mut _,
+            ) != 0 && (dw_access_state_flags & CERT_ACCESS_STATE_LM_SYSTEM_STORE_FLAG) != 0 {
+                HCCE_LOCAL_MACHINE
+            } else {
+                HCERTCHAINENGINE::default()
             };
 
             let result = CertGetCertificateChain(
@@ -184,7 +139,7 @@ impl CertContext {
                     for element in elements {
                         if first {
                             first = false;
-                        } else if !include_root {
+                        } else {
                             if 0 != ((**element).TrustStatus.dwInfoStatus
                                 & CERT_TRUST_IS_SELF_SIGNED)
                             {
