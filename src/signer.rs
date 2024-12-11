@@ -104,7 +104,7 @@ struct CngSigner {
 }
 
 impl CngSigner {
-    // new hash function using BCryptHash function which uses FIPS certified SymCrypt
+    // hash function using BCryptHash function which uses FIPS certified SymCrypt
     fn hash(&self, message: &[u8]) -> Result<(Vec<u8>, SignaturePadding), Error> {
         let (alg, padding) = match self.scheme {
             SignatureScheme::RSA_PKCS1_SHA256 => {
