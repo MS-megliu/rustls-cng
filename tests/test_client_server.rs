@@ -16,7 +16,7 @@ mod client {
     };
     use rustls_pki_types::CertificateDer;
 
-    use rustls_cng::{cert::ChainEngineType, signer::CngSigningKey, store::CertStore};
+    use rustls_cng::{signer::CngSigningKey, store::CertStore};
 
     #[derive(Debug)]
     pub struct ClientCertResolver(CertStore, String);
@@ -32,7 +32,7 @@ mod client {
         let key = context.acquire_key()?;
         let signing_key = CngSigningKey::new(key)?;
         let chain = context
-            .as_chain_der(true, ChainEngineType::HkeyLocalMachine)?
+            .as_chain_der()?
             .into_iter()
             .map(Into::into)
             .collect();
@@ -111,7 +111,7 @@ mod server {
         RootCertStore, ServerConfig, ServerConnection, Stream,
     };
 
-    use rustls_cng::{cert::ChainEngineType, signer::CngSigningKey, store::CertStore};
+    use rustls_cng::{signer::CngSigningKey, store::CertStore};
 
     #[derive(Debug)]
     pub struct ServerCertResolver(CertStore);
@@ -127,9 +127,7 @@ mod server {
                 CngSigningKey::new(key).ok().map(|key| (ctx, key))
             })?;
 
-            let chain = context
-                .as_chain_der(true, ChainEngineType::HkeyLocalMachine)
-                .ok()?;
+            let chain = context.as_chain_der().ok()?;
             let certs = chain.into_iter().map(Into::into).collect();
 
             Some(Arc::new(CertifiedKey {
