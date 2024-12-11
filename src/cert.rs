@@ -90,7 +90,7 @@ impl CertContext {
     }
 
     /// Return DER-encoded X.509 certificate chain.
-    /// (1) exclude the root. (2) check leaf cert to determin to use HKLM engine or HKCU engine
+    // (1) exclude the root. (2) check leaf cert to determine to use HKLM engine or HKCU engine
     pub fn as_chain_der(&self) -> Result<Vec<Vec<u8>>> {
         unsafe {
             let param = CERT_CHAIN_PARA {
@@ -135,14 +135,9 @@ impl CertContext {
                         (*chain_ptr).cElement as usize,
                     );
 
-                    let mut first = true;
-                    for element in elements {
-                        if first {
-                            first = false;
-                        } else {
-                            if 0 != ((**element).TrustStatus.dwInfoStatus
-                                & CERT_TRUST_IS_SELF_SIGNED)
-                            {
+                    for (index, element) in elements.iter().enumerate() {
+                        if index != 0 {
+                            if 0 != ((**element).TrustStatus.dwInfoStatus & CERT_TRUST_IS_SELF_SIGNED) {
                                 break;
                             }
                         }
@@ -153,7 +148,6 @@ impl CertContext {
                 }
 
                 CertFreeCertificateChain(&*context);
-
                 Ok(chain)
             } else {
                 Err(CngError::from_win32_error())

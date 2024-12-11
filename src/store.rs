@@ -136,12 +136,12 @@ impl CertStore {
         unsafe { self.do_find(CERT_FIND_HASH, &hash_blob as *const _ as _) }
     }
 
-    /// On later OS releases, we added CERT_FIND_SHA256_HASH.
-    /// However, rustls-cng could be installed on earlier OS release where this FIND_SHA256 isn't present.
-    /// But the CERT_SHA256_HASH_PROP_ID is present.
-    /// So will need to add a new internal find function that gets and compares the SHA256 property.
-    /// Also, since SHA1 is being deprecated, Windows components should not use.
-    /// Therefore, the need to find via SHA256 instead of SHA1.
+    // On later OS releases, we added CERT_FIND_SHA256_HASH.
+    // However, rustls-cng could be installed on earlier OS release where this FIND_SHA256 isn't present.
+    // But the CERT_SHA256_HASH_PROP_ID is present.
+    // So will need to add a new internal find function that gets and compares the SHA256 property.
+    // Also, since SHA1 is being deprecated, Windows components should not use.
+    // Therefore, the need to find via SHA256 instead of SHA1.
 
     /// Find list of certificates matching the SHA256 hash
     pub fn find_by_sha256<D>(&self, hash: D) -> Result<Vec<CertContext>>
