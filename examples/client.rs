@@ -13,7 +13,6 @@ use rustls::{
 use rustls_pki_types::{CertificateDer, ServerName};
 
 use rustls_cng::{
-    cert::ChainEngineType,
     signer::CngSigningKey,
     store::{CertStore, CertStoreType},
 };
@@ -38,7 +37,7 @@ fn get_chain(
     let key = context.acquire_key()?;
     let signing_key = CngSigningKey::new(key)?;
     let chain = context
-        .as_chain_der(true, ChainEngineType::HkeyLocalMachine)?
+        .as_chain_der()?
         .into_iter()
         .map(Into::into)
         .collect();
