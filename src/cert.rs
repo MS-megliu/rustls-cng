@@ -88,12 +88,10 @@ impl CertContext {
             )
         }
     }
-    
+
     /// Return DER-encoded X.509 certificate chain.
     /// (1) exclude the root. (2) check leaf cert to determin to use HKLM engine or HKCU engine
-    pub fn as_chain_der(
-        &self,
-    ) -> Result<Vec<Vec<u8>>> {
+    pub fn as_chain_der(&self) -> Result<Vec<Vec<u8>>> {
         unsafe {
             let param = CERT_CHAIN_PARA {
                 cbSize: mem::size_of::<CERT_CHAIN_PARA>() as u32,
@@ -108,7 +106,9 @@ impl CertContext {
                 CERT_ACCESS_STATE_PROP_ID,
                 &mut dw_access_state_flags as *mut _ as *mut _,
                 &mut cb_data as *mut _,
-            ) != 0 && (dw_access_state_flags & CERT_ACCESS_STATE_LM_SYSTEM_STORE_FLAG) != 0 {
+            ) != 0
+                && (dw_access_state_flags & CERT_ACCESS_STATE_LM_SYSTEM_STORE_FLAG) != 0
+            {
                 HCCE_LOCAL_MACHINE
             } else {
                 HCERTCHAINENGINE::default()
