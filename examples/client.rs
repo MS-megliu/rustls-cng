@@ -34,7 +34,7 @@ fn get_chain(
     let context = contexts
         .first()
         .ok_or_else(|| anyhow::Error::msg("No client cert"))?;
-    let key = context.acquire_key()?;
+    let key = context.acquire_key(true)?;
     let signing_key = CngSigningKey::new(key)?;
     let chain = context
         .as_chain_der()?

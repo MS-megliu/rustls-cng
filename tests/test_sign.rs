@@ -28,7 +28,7 @@ fn test_sign() {
         SignatureScheme::ECDSA_NISTP384_SHA384,
     ];
 
-    let key = context.acquire_key().unwrap();
+    let key = context.acquire_key(true).unwrap();
     let signing_key = CngSigningKey::new(key).unwrap();
     assert_eq!(signing_key.algorithm(), SignatureAlgorithm::ECDSA);
     let signer = signing_key.choose_scheme(&offered).unwrap();

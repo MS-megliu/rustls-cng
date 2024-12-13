@@ -29,7 +29,7 @@ mod client {
         let context = contexts
             .first()
             .ok_or_else(|| anyhow::Error::msg("No client cert"))?;
-        let key = context.acquire_key()?;
+        let key = context.acquire_key(true)?;
         let signing_key = CngSigningKey::new(key)?;
         let chain = context
             .as_chain_der()?
@@ -123,7 +123,7 @@ mod server {
             let contexts = self.0.find_by_subject_str(name).ok()?;
 
             let (context, key) = contexts.into_iter().find_map(|ctx| {
-                let key = ctx.acquire_key().ok()?;
+                let key = ctx.acquire_key(true).ok()?;
                 CngSigningKey::new(key).ok().map(|key| (ctx, key))
             })?;
 

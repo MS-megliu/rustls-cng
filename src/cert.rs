@@ -57,11 +57,15 @@ impl CertContext {
         unsafe { &*self.0.inner() }
     }
 
-    /// Attempt to silently acquire a CNG private key from this context.
-    pub fn acquire_key(&self) -> Result<NCryptKey> {
+    /// Attempt to acquire a CNG private key from this context.
+    /// The `silent` parameter indicates whether to suppress the user prompts.
+    pub fn acquire_key(&self, silent: bool) -> Result<NCryptKey> {
         let mut handle = HCRYPTPROV_OR_NCRYPT_KEY_HANDLE::default();
         let mut key_spec = CERT_KEY_SPEC::default();
-        let flags = CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG | CRYPT_ACQUIRE_SILENT_FLAG;
+
+        let flags =
+            if silent { CRYPT_ACQUIRE_SILENT_FLAG } else { 0 } | CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG;
+
         unsafe {
             let result = CryptAcquireCertificatePrivateKey(
                 self.inner(),
@@ -72,7 +76,9 @@ impl CertContext {
                 ptr::null_mut(),
             ) != 0;
             if result {
-                Ok(NCryptKey::new_owned(handle))
+                let mut key = NCryptKey::new_owned(handle);
+                key.set_silent(silent);
+                Ok(key)
             } else {
                 Err(CngError::from_win32_error())
             }
@@ -137,7 +143,9 @@ impl CertContext {
 
                     for (index, element) in elements.iter().enumerate() {
                         if index != 0 {
-                            if 0 != ((**element).TrustStatus.dwInfoStatus & CERT_TRUST_IS_SELF_SIGNED) {
+                            if 0 != ((**element).TrustStatus.dwInfoStatus
+                                & CERT_TRUST_IS_SELF_SIGNED)
+                            {
                                 break;
                             }
                         }

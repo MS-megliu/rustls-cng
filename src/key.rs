@@ -66,22 +66,31 @@ impl Drop for InnerKey {
 
 /// CNG private key wrapper
 #[derive(Clone, Debug)]
-pub struct NCryptKey(Arc<InnerKey>);
+pub struct NCryptKey {
+    inner: Arc<InnerKey>,
+    silent: bool,
+}
 
 impl NCryptKey {
     /// Create an owned instance which frees the underlying handle automatically
     pub fn new_owned(handle: NCRYPT_KEY_HANDLE) -> Self {
-        NCryptKey(Arc::new(InnerKey::Owned(handle)))
+        NCryptKey {
+            inner: Arc::new(InnerKey::Owned(handle)),
+            silent: true,
+        }
     }
 
     /// Create a borrowed instance which doesn't free the key handle
     pub fn new_borrowed(handle: NCRYPT_KEY_HANDLE) -> Self {
-        NCryptKey(Arc::new(InnerKey::Borrowed(handle)))
+        NCryptKey {
+            inner: Arc::new(InnerKey::Borrowed(handle)),
+            silent: true,
+        }
     }
 
     /// Return an inner CNG key handle
     pub fn inner(&self) -> NCRYPT_KEY_HANDLE {
-        self.0.inner()
+        self.inner.inner()
     }
 
     fn get_string_property(&self, property: PCWSTR) -> Result<String> {
@@ -160,6 +169,11 @@ impl NCryptKey {
         CngError::from_hresult(result)
     }
 
+    /// Enable or disable silent key operations without prompting the user. The default value is 'true'.
+    pub fn set_silent(&mut self, silent: bool) {
+        self.silent = silent;
+    }
+
     /// Sign a given digest with this key. The `hash` slice must be 32, 48 or 64 bytes long.
     pub fn sign(&self, hash: &[u8], padding: SignaturePadding) -> Result<Vec<u8>> {
         unsafe {
@@ -189,6 +203,7 @@ impl NCryptKey {
             };
 
             let mut result = 0;
+            let dwflags = flag | if self.silent { NCRYPT_SILENT_FLAG } else { 0 };
 
             CngError::from_hresult(NCryptSignHash(
                 self.inner(),
@@ -198,7 +213,7 @@ impl NCryptKey {
                 ptr::null_mut(),
                 0,
                 &mut result,
-                NCRYPT_SILENT_FLAG | flag,
+                dwflags,
             ))?;
 
             let mut signature = vec![0u8; result as usize];
@@ -211,7 +226,7 @@ impl NCryptKey {
                 signature.as_mut_ptr(),
                 signature.len() as u32,
                 &mut result,
-                NCRYPT_SILENT_FLAG | flag,
+                dwflags,
             ))?;
 
             Ok(signature)

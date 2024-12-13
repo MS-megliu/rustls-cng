@@ -63,7 +63,7 @@ impl ResolvesServerCert for ServerCertResolver {
 
         // attempt to acquire a private key and construct CngSigningKey
         let (context, key) = contexts.into_iter().find_map(|ctx| {
-            let key = ctx.acquire_key().ok()?;
+            let key = ctx.acquire_key(true).ok()?;
             if let Some(ref pin) = self.pin {
                 key.set_pin(pin).ok()?;
             }
